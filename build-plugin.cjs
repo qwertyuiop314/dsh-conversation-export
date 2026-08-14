@@ -36,10 +36,24 @@ const pkg = {
     './client': './lib/client.js',
     './package.json': './package.json'
   },
-  dsh: { client: { platform: 'web' } },
-  files: ['lib'],
+  dsh: {
+    client: { platform: 'web' },
+    // bundle 声明：dsh plugin add 后由 reconcile 自动加入 profile bundles 层，
+    // cordis.patch.yml 注入装载条目 —— 真正的一条命令安装。
+    bundle: { patch: './cordis.patch.yml' }
+  },
+  files: ['lib', 'cordis.patch.yml'],
   license: 'MIT'
 };
+
+// 包内 patch：注入插件装载条目（bundle 层随 profile 启动时应用）
+const bundlePatch = `# dsh-session-conversation-export bundle patch:
+# 由 dsh plugin add 安装后经 reconcile 加入 dsh.profile.bundles，启动时应用本层，
+# 注入 Export chat 插件装载条目（无需再手动改 profile 的 cordis.patch.yml）。
+- insert:
+    - id: session-conversation-export
+      name: '@deepseek-ai/dsh-session-conversation-export'
+`;
 
 // ---------- 3. 宿主半部（最小 cordis 插件：转换全在浏览器完成） ----------
 const host = `/**
@@ -256,6 +270,7 @@ fs.mkdirSync(path.join(OUT, 'lib'), { recursive: true });
 fs.writeFileSync(path.join(OUT, 'package.json'), JSON.stringify(pkg, null, 2) + '\n', 'utf8');
 fs.writeFileSync(path.join(OUT, 'lib', 'index.js'), host, 'utf8');
 fs.writeFileSync(path.join(OUT, 'lib', 'client.js'), client, 'utf8');
+fs.writeFileSync(path.join(OUT, 'cordis.patch.yml'), bundlePatch, 'utf8');
 
 console.log('✔ 已生成插件包:');
 for (const f of ['package.json', 'lib/index.js', 'lib/client.js']) {

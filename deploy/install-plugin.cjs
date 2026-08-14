@@ -95,15 +95,22 @@ if (fs.existsSync(manifestFile)) {
   }
 }
 
-// ---------- 3. cordis.patch.yml 装载条目（幂等） ----------
-let patch = '';
-if (fs.existsSync(patchFile)) patch = fs.readFileSync(patchFile, 'utf8');
-if (patch.includes('session-conversation-export') && patch.includes(PKG)) {
-  log('✔ cordis.patch.yml 已有插件条目，跳过');
+// ---------- 3. 装载条目 ----------
+// 经 dsh plugin add 安装时：包内 dsh.bundle 已加入 profile bundles 层，
+// 其 cordis.patch.yml 自动注入装载条目，无需（也不应）再改 profile 的 patch 文件。
+// 手动复制兜底时：没有 bundle 层，必须写 profile 的 cordis.patch.yml。
+if (installedBy === 'dsh plugin add') {
+  log('✔ 走官方 dsh plugin add：装载条目已由包内 bundle patch 注入（无需手动改 cordis.patch.yml）');
 } else {
-  const addition = (patch.trim() === '' ? '' : '\n') + INSERT_BLOCK + '\n';
-  fs.writeFileSync(patchFile, patch + addition, 'utf8');
-  log('✔ 已写入 cordis.patch.yml 装载条目: ' + patchFile);
+  let patch = '';
+  if (fs.existsSync(patchFile)) patch = fs.readFileSync(patchFile, 'utf8');
+  if (patch.includes('session-conversation-export') && patch.includes(PKG)) {
+    log('✔ cordis.patch.yml 已有插件条目，跳过');
+  } else {
+    const addition = (patch.trim() === '' ? '' : '\n') + INSERT_BLOCK + '\n';
+    fs.writeFileSync(patchFile, patch + addition, 'utf8');
+    log('✔ 已写入 cordis.patch.yml 装载条目: ' + patchFile);
+  }
 }
 
 // ---------- 4. 完成提示 ----------

@@ -1,0 +1,6 @@
+# dsh-session-conversation-export bundle patch:
+# 由 dsh plugin add 安装后经 reconcile 加入 dsh.profile.bundles，启动时应用本层，
+# 注入 Export chat 插件装载条目（无需再手动改 profile 的 cordis.patch.yml）。
+- insert:
+    - id: session-conversation-export
+      name: '@deepseek-ai/dsh-session-conversation-export'
