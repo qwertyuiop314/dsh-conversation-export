@@ -1,0 +1,7 @@
+node_modules/
+conversation-export/
+dist/
+*.zip
+*.log
+.DS_Store
+Thumbs.db
