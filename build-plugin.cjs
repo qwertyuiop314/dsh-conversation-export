@@ -27,7 +27,7 @@ core = core.replace(/\n\/\* 暴露给测试\/外部使用[\s\S]*$/, '');
 // ---------- 2. package.json ----------
 const pkg = {
   name: '@deepseek-ai/dsh-session-conversation-export',
-  version: '0.1.0',
+  version: '0.1.1',
   description: 'Web 导出对话：在 Session 头部（Session log 左侧）一键把会话日志清洗并转换为对话记录（Markdown / 纯文本 / HTML / JSON / JSONL / OpenAI 格式），打包 ZIP 下载',
   type: 'module',
   main: './lib/index.js',
