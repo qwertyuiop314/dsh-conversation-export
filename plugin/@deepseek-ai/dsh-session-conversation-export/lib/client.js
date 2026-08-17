@@ -809,7 +809,7 @@ function makeStoreZip(files) {
 		* @param kinds - 所选格式键数组（如 ["md","json"]）；单个文件直接下载，多个打包 ZIP。
 		* @returns 汇总信息。
 		*/
-		async function exportConversation(sessionId, kinds) {
+		async function exportConversation(sessionId, kinds, optsOverride) {
 			const origin = globalThis.location?.origin !== void 0 && globalThis.location.origin !== "null" ? globalThis.location.origin : "http://dsh.internal";
 			const url = new URL("/api/session.export", origin);
 			url.searchParams.set("sessionId", sessionId);
@@ -831,7 +831,7 @@ function makeStoreZip(files) {
 				}
 			}
 			if (jsonls.length === 0) throw new Error("导出包中没有找到会话日志（*.jsonl），请确认当前会话有持久化记录");
-			const opts = { keepPlugin: false, reasoning: true, tools: true, maxToolResult: 2000 };
+			const opts = Object.assign({ keepPlugin: false, reasoning: true, tools: true, maxToolResult: 2000 }, optsOverride || {});
 			const convs = [];
 			let broken = 0;
 			for (const entry of jsonls) {
@@ -867,6 +867,7 @@ function makeStoreZip(files) {
 			const [phase, setPhase] = react.useState("idle");
 			const [detail, setDetail] = react.useState("");
 			const [selected, setSelected] = react.useState({ md: true, txt: false, html: false, json: false, jsonl: false, openai: false });
+			const [contentOpts, setContentOpts] = react.useState({ reasoning: true, tools: true });
 			const busy = phase === "busy";
 			const open = phase !== "idle";
 			const pickedCount = CONV_FORMATS.filter(([k]) => selected[k]).length;
@@ -879,7 +880,7 @@ function makeStoreZip(files) {
 				if (busy || pickedCount === 0) return;
 				setPhase("busy");
 				const kinds = CONV_FORMATS.filter(([k]) => selected[k]).map(([k]) => k);
-				exportConversation(sessionId, kinds).then((summary) => {
+				exportConversation(sessionId, kinds, contentOpts).then((summary) => {
 					setPhase("ok");
 					setDetail("已生成 " + summary.files + " 个文件（" + summary.sessions + " 个会话" + (summary.broken > 0 ? "，" + summary.broken + " 行损坏已跳过" : "") + "），下载已开始。");
 				}).catch((error) => {
@@ -895,6 +896,17 @@ function makeStoreZip(files) {
 					react_jsx_runtime.jsx("span", { children: label }),
 					react_jsx_runtime.jsx("code", { children: ext })
 				] }, k)) }),
+				react_jsx_runtime.jsx("div", { className: "dshCvtHint", children: "导出内容（可选）：" }),
+				react_jsx_runtime.jsx("div", { className: "dshCvtGrid", children: [
+					react_jsx_runtime.jsxs("label", { className: "dshCvtOpt", children: [
+						react_jsx_runtime.jsx("input", { type: "checkbox", checked: contentOpts.reasoning, onChange: () => setContentOpts((s) => ({ ...s, reasoning: !s.reasoning })) }),
+						react_jsx_runtime.jsx("span", { children: "包含推理过程 💭" })
+					] }),
+					react_jsx_runtime.jsxs("label", { className: "dshCvtOpt", children: [
+						react_jsx_runtime.jsx("input", { type: "checkbox", checked: contentOpts.tools, onChange: () => setContentOpts((s) => ({ ...s, tools: !s.tools })) }),
+						react_jsx_runtime.jsx("span", { children: "包含工具调用与结果 🔧" })
+					] })
+				] }),
 				react_jsx_runtime.jsx("div", { className: "dshCvtActions", children: [
 					react_jsx_runtime.jsx(_primitives.Button, { size: "sm", onClick: () => setAll(!allOn), children: allOn ? "全不选" : "全选" }),
 					react_jsx_runtime.jsx(_primitives.Button, { size: "sm", onClick: close, children: "取消" }),

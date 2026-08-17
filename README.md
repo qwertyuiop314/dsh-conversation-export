@@ -4,7 +4,7 @@
 
 | 入口 | 位置 | 说明 |
 |---|---|---|
-| 🔌 DSH 插件 | Session 头部 "Export chat" 按钮 | 弹窗勾选格式，单选直下、多选 ZIP |
+| 🔌 DSH 插件 | Session 头部 "Export chat" 按钮 | 弹窗勾选格式及是否包含推理/工具，单选直下、多选 ZIP |
 | 🖥️ GUI | `session-conversation-gui.html` | 双击即用、零安装、可离线 |
 | ⌨️ CLI | `session-to-conversation.cjs` | 零依赖（Node ≥18），适合批量 |
 
@@ -48,7 +48,7 @@ node session-to-conversation.cjs --in dsh-session-xxx.zip --formats md,html
 node session-to-conversation.cjs --in ./logs --no-tools --max-tool-result 800
 
 # GUI：双击 html，拖入 .jsonl / .zip
-# 插件：右上角 Export chat → 勾选格式 → 导出
+# 插件：右上角 Export chat → 勾选格式/是否包含推理与工具 → 导出
 ```
 
 输出格式：`.md` / `.txt` / `.html`（正文 Markdown 已渲染）/ `.json` / `.jsonl` / `.openai.json`（OpenAI 兼容）。

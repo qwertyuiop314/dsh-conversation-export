@@ -33,20 +33,40 @@ const clientPath = path.join(path.dirname(pkgPath), client);
 console.log('✔ client bundle 存在:', fs.existsSync(clientPath), `(${fs.statSync(clientPath).size} B)`);
 
 // 3) patch YAML 可解析且包含插件条目
-let yamlOk = true;
-try {
-  const yaml = req.resolve('js-yaml');
-  const loaded = require(yaml);
-  const text = fs.readFileSync(patchFile, 'utf8');
-  const doc = loaded.load(text);
-  const inserts = doc.filter((row) => row && row.insert);
-  const found = inserts.some((row) => row.insert.some((e) => e.id === 'session-conversation-export' && e.name === '@deepseek-ai/dsh-session-conversation-export'));
-  console.log('✔ cordis.patch.yml 解析 OK · 找到插件条目:', found);
-  if (!found) yamlOk = false;
-} catch (err) {
-  console.log('js-yaml 不可用，跳过 YAML 结构校验:', err.message);
-  const raw = fs.readFileSync(patchFile, 'utf8');
-  yamlOk = raw.includes('session-conversation-export') && raw.includes('@deepseek-ai/dsh-session-conversation-export');
+// 官方 dsh plugin add（bundle 方式）会把装载条目放在包内 cordis.patch.yml，
+// 并在 profile package.json 的 dsh.profile.bundles 中登记；手动安装兜底则写在 profile 的 cordis.patch.yml。
+function patchHasEntry(file) {
+  if (!file || !fs.existsSync(file)) return false;
+  try {
+    const yaml = req.resolve('js-yaml');
+    const loaded = require(yaml);
+    const doc = loaded.load(fs.readFileSync(file, 'utf8'));
+    const inserts = (doc || []).filter((row) => row && row.insert);
+    return inserts.some((row) => row.insert.some((e) => e.id === 'session-conversation-export' && e.name === '@deepseek-ai/dsh-session-conversation-export'));
+  } catch (err) {
+    const raw = fs.readFileSync(file, 'utf8');
+    return raw.includes('session-conversation-export') && raw.includes('@deepseek-ai/dsh-session-conversation-export');
+  }
+}
+
+const profilePatchFound = patchHasEntry(patchFile);
+console.log('✔ profile cordis.patch.yml 找到插件条目:', profilePatchFound);
+
+let yamlOk = profilePatchFound;
+const pluginDir = path.dirname(pkgPath);
+const bundlePatchRel = pkg.dsh && pkg.dsh.bundle && pkg.dsh.bundle.patch;
+if (!yamlOk && bundlePatchRel) {
+  const bundlePatchFile = path.join(pluginDir, bundlePatchRel);
+  const bundlePatchFound = patchHasEntry(bundlePatchFile);
+  console.log('✔ bundle cordis.patch.yml 找到插件条目:', bundlePatchFound);
+  const manifestFile = path.join(profileRoot, 'package.json');
+  let bundleRegistered = false;
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    bundleRegistered = Array.isArray(manifest.dsh?.profile?.bundles) && manifest.dsh.profile.bundles.includes('@deepseek-ai/dsh-session-conversation-export');
+  } catch {}
+  console.log('✔ profile bundles 登记插件:', bundleRegistered);
+  yamlOk = bundlePatchFound && bundleRegistered;
 }
 if (!yamlOk) process.exit(1);
 console.log('全部通过 ✔');

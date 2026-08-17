@@ -80,4 +80,19 @@ console.log('✔ 示例数据: 消息', conv.messages.length, '| 工具调用', 
 if (conv.messages.length !== 3 || conv.stats.toolCalls !== 1) process.exit(1);
 `;
 vm.runInNewContext(coreTest, { require, console, TextDecoder, TextEncoder, DecompressionStream, Blob, Response }, { filename: 'core-test.js' });
+
+// 插件新增的“是否导出推理/工具”选项
+const pluginFeatureChecks = [
+  ['exportConversation 支持 optsOverride', bundle.includes('async function exportConversation(sessionId, kinds, optsOverride)')],
+  ['导出内容选项 state', bundle.includes('const [contentOpts, setContentOpts] = react.useState({ reasoning: true, tools: true })')],
+  ['推理过程选框', bundle.includes('包含推理过程 💭')],
+  ['工具调用与结果选框', bundle.includes('包含工具调用与结果 🔧')],
+  ['默认选项向后兼容', bundle.includes('Object.assign({ keepPlugin: false, reasoning: true, tools: true, maxToolResult: 2000 }, optsOverride || {})')],
+];
+let pluginFeatureOk = true;
+for (const [name, ok] of pluginFeatureChecks) {
+  console.log(`${ok ? '✔' : '✘'} ${name}`);
+  if (!ok) pluginFeatureOk = false;
+}
+if (!pluginFeatureOk) process.exit(1);
 console.log('全部通过 ✔');

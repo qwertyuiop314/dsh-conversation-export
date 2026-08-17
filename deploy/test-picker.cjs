@@ -1,5 +1,6 @@
-// Functional test: run the REAL bundle's exportConversation with kind selection,
-// against the live export payload (single format → direct file; multiple → ZIP).
+// Functional test: run the REAL bundle's exportConversation with kind selection
+// and content options (reasoning/tools), against the live export payload
+// (single format → direct file; multiple → ZIP).
 // Requires a running DSH web server and DSH_SESSION_ID in the environment
 // (e.g. run from within a DSH agent session, as here).
 // Usage: node deploy/test-picker.cjs   (from the package root)
@@ -15,10 +16,12 @@ bundle = bundle.replace('return module.exports;', 'exports.__test = { exportConv
 
 let captured = null;
 const downloads = [];
+const blobStore = [];
+const DSH_ORIGIN = process.env.DSH_ORIGIN || 'http://127.0.0.1:3080';
 const sandbox = {
   window: { __ModuleLoader__: { load(rec) { captured = rec; } } },
   document: {
-    createElement: (tag) => ({ tag, dataset: {}, download: '', href: '', click() { downloads.push({ name: this.download, href: this.href }); }, remove() {} }),
+    createElement: (tag) => ({ tag, dataset: {}, download: '', href: '', click() { downloads.push({ name: this.download, href: this.href, blob: blobStore[Number(this.href.replace('blob:', ''))] }); }, remove() {} }),
     body: { appendChild: () => {} },
     head: { appendChild: () => {} },
     querySelector: () => null,
@@ -28,9 +31,9 @@ const sandbox = {
   fetch: (u) => fetch(u), // 真实 fetch 打线上导出
   console,
   setTimeout,
-  location: { origin: 'http://127.0.0.1:3080' },
+  location: { origin: DSH_ORIGIN },
 };
-sandbox.URL.createObjectURL = () => 'blob:fake';
+sandbox.URL.createObjectURL = (blob) => { blobStore.push(blob); return 'blob:' + (blobStore.length - 1); };
 sandbox.URL.revokeObjectURL = () => {};
 vm.createContext(sandbox);
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
@@ -76,6 +79,23 @@ const check = (name, cond, extra) => { console.log(`${cond ? '✔' : '✘'} ${na
   downloads.length = 0;
   const r4 = await t.exportConversation(sessionId, t.CONV_FORMATS.map(([k]) => k));
   check('全选 6 项 → 6 个文件 + ZIP', r4.files === 6 && downloads.length === 1 && downloads[0].name.endsWith('.zip'), `files=${r4.files}`);
+
+  // 5) 内容选项：不导出推理和工具
+  downloads.length = 0;
+  const r5 = await t.exportConversation(sessionId, ['md'], { reasoning: false, tools: false });
+  const md5 = downloads[0]?.blob ? await downloads[0].blob.text() : '';
+  check('关闭推理+工具 → 1 个 md 文件', r5.files === 1 && downloads.length === 1 && downloads[0].name.endsWith('.conversation.md'), `files=${r5.files}`);
+  check('关闭推理+工具 → 无推理', !md5.includes('💭 推理过程'), md5.includes('💭 推理过程') ? '仍含推理' : '');
+  check('关闭推理+工具 → 无工具', !md5.includes('🔧 工具调用') && !md5.includes('📥 工具结果'), md5.includes('🔧 工具调用') || md5.includes('📥 工具结果') ? '仍含工具' : '');
+  check('关闭推理+工具 → 正文保留', md5.includes('👤 用户') || md5.includes('🤖 助手'), md5.slice(0, 80));
+
+  // 6) 内容选项：只保留推理，不导出工具
+  downloads.length = 0;
+  const r6 = await t.exportConversation(sessionId, ['md'], { reasoning: true, tools: false });
+  const md6 = downloads[0]?.blob ? await downloads[0].blob.text() : '';
+  check('保留推理+关工具 → 1 个 md 文件', r6.files === 1 && downloads.length === 1 && downloads[0].name.endsWith('.conversation.md'), `files=${r6.files}`);
+  check('保留推理+关工具 → 含推理', md6.includes('💭 推理过程'), '');
+  check('保留推理+关工具 → 无工具', !md6.includes('🔧 工具调用') && !md6.includes('📥 工具结果'), '');
 
   console.log(failures === 0 ? '\n导出选择逻辑全部通过 ✔' : `\n${failures} 项失败 ✘`);
   process.exit(failures === 0 ? 0 : 1);
